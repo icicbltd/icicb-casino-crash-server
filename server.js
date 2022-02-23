@@ -28,7 +28,7 @@ app.get('/*', function (req, res) {
 	})
 })
 
-server.listen(3306, function () {
+server.listen(5555, function () {
     console.log("listening --- server is running ...");
 });
 
@@ -124,16 +124,12 @@ gameSocket = io.on("connection", function (socket) {
     try{
 
         socket.on("disconnect", function () {
-            users = users.filter((user) => user.id != socket.id);
-            sockets = sockets.filter((_socket) => _socket.id != socket.id);
-            console.log(users);
-            emitUserlist();
             console.log("socket disconnected: " + socket.id);
     
         });
     
         socket.on("enterroom", (data, callback) => {
-            users.push({
+            users[data.token] = {
                 id: socket.id,
                 name: data.name,
                 amount: data.amount,
@@ -142,7 +138,7 @@ gameSocket = io.on("connection", function (socket) {
                 cashouted: data.cashouted,
                 crashed: data.crashed,
                 token: data.token
-            });
+            }
             console.log(users);
     
             sockets.map((socket) => {
@@ -164,25 +160,24 @@ gameSocket = io.on("connection", function (socket) {
             });
         });
     
-        socket.on("playerbet", (data) => {
-            users.map ((user) => {
-                if (user.id == socket.id) {
-                    user.amount = data.amount;
-                    user.betted = data.betted;
-                    user.token = data.token;
-                    user.name = data.name;
-                    try {
-                        axios.post(process.env.PLATFORM_SERVER + "api/games/bet", {
-                            token: user.token,
-                            amount: user.amount
-                        });
-                    } catch{
-                        throw new Error("Bet Error!");
-                    }
-                }                
-            });  
+        socket.on("playerbet", async(data) => {
+            console.log(data)
+            var user = users[data.token];
+            user.amount = data.amount;
+            user.betted = data.betted;
+            user.token = data.token;
+            user.name = data.name;
+            user.multipier = 0;
+            // try {
+            //     await axios.post(process.env.PLATFORM_SERVER + "api/games/bet", {
+            //         token: user.token,
+            //         amount: user.amount
+            //     });
+            // } catch{
+            //     throw new Error("Bet Error!");
+            // } 
             
-            emitAllUserlist();
+            emitAllUserlist(user);
 
             socket.emit("bet response", {
                 status: 1,
@@ -191,31 +186,23 @@ gameSocket = io.on("connection", function (socket) {
             });            
         });    
     
-        socket.on("playercashout", (data) => {
-            users.map((user) => {
-                if (user.id == socket.id) {
-                    user.cashouted = data.cashouted;
-                    user.multipier = data.multipier;
-                    try {
-                         axios.post(process.env.PLATFORM_SERVER + "api/games/winlose", {
-                            token: user.token,
-                            amount: user.amount * user.multipier,
-                            winState: true
-                        });
-                    } catch{
-                        throw new Error("Can't find Server!");
-                    }
-                }
-                
-            });
+        socket.on("playercashout", async(data) => {
+            var user = users[data.token];
+            user.cashouted = data.cashouted;
+            user.multipier = data.multipier;
+            
+            // try {
+            //         await axios.post(process.env.PLATFORM_SERVER + "api/games/winlose", {
+            //         token: user.token,
+            //         amount: user.amount * user.multipier,
+            //         winState: true
+            //     });
+            // } catch{
+            //     throw new Error("Can't find Server!");
+            // }
     
-            emitAllUserlist();
-    
-            let user;
-            users.map((_user) => {
-                if (_user.id == socket.id)
-                    user = _user;
-            });
+            emitAllUserlist(user);
+
             sockets.map((_socket) => {
                 _socket.emit("betted", {
                     username: user.name,
@@ -248,17 +235,10 @@ gameSocket = io.on("connection", function (socket) {
     }
 });
 
-function emitUserlist() {
-    sockets.map((_socket) => {
-        let _users = users.filter((user) => user.id != _socket.id);
-        _socket.emit("userslist", { users: _users });
-    });
-}
-
-function emitAllUserlist() {
+function emitAllUserlist(user) {
     sockets.map((_socket) => {
         // let _users = users.filter((user) => user.id != _socket.id);
-        _socket.emit("userslist", { users: users });
+        _socket.emit("userslist", { users: user});
     });
 }
 
