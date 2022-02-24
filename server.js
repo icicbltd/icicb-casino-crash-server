@@ -28,7 +28,7 @@ app.get('/*', function (req, res) {
 	})
 })
 
-server.listen(5555, function () {
+server.listen(3306, function () {
     console.log("listening --- server is running ...");
 });
 
